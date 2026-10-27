@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HTML5 Canvas ルーレット - 完全自立型 1ファイルWebアプリ</title>
+  <title>HTML5 Canvas ルーレット (Firestore リアルタイム履歴付き)</title>
   <style>
     :root {
       --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
-      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-bg: rgba(30, 41, 59, 0.72);
       --card-border: rgba(255, 255, 255, 0.1);
       --primary-gradient: linear-gradient(135deg, #0284c7 0%, #3b82f6 50%, #6366f1 100%);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #38bdf8;
+      --firestore-color: #f59e0b;
     }
 
     * {
@@ -41,9 +42,9 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 12px;
-      padding: 12px 18px;
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(12px);
+      padding: 12px 20px;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(14px);
       border: 1px solid var(--card-border);
       border-radius: 20px;
     }
@@ -55,21 +56,21 @@
     }
 
     .brand-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
       background: var(--primary-gradient);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
-      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+      font-size: 20px;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
     }
 
     .brand h1 {
       font-size: 1.15rem;
       font-weight: 800;
-      background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc);
+      background: linear-gradient(to right, #38bdf8, #818cf8, #fbbf24);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       letter-spacing: -0.01em;
@@ -78,6 +79,22 @@
     .brand p {
       font-size: 0.75rem;
       color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .firestore-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
     }
 
     .header-actions {
@@ -90,7 +107,7 @@
       background: rgba(30, 41, 59, 0.8);
       border: 1px solid var(--card-border);
       color: var(--text-main);
-      padding: 8px 12px;
+      padding: 8px 14px;
       border-radius: 10px;
       font-size: 0.82rem;
       font-weight: 600;
@@ -125,7 +142,7 @@
       }
     }
 
-    /* 左側: ルーレットステージ */
+    /* 左側: ステージ */
     .stage-card {
       background: var(--card-bg);
       backdrop-filter: blur(16px);
@@ -244,7 +261,7 @@
       padding: 22px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
@@ -276,7 +293,6 @@
       justify-content: space-between;
     }
 
-    /* プリセットボタン */
     .preset-chips {
       display: flex;
       flex-wrap: wrap;
@@ -301,12 +317,11 @@
       border-color: rgba(56, 189, 248, 0.4);
     }
 
-    /* 項目リスト */
     .items-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 290px;
+      max-height: 280px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -415,7 +430,6 @@
       cursor: not-allowed;
     }
 
-    /* 追加ボタン */
     .btn-add-item {
       background: rgba(15, 23, 42, 0.5);
       border: 1px dashed rgba(255, 255, 255, 0.2);
@@ -437,7 +451,6 @@
       border-color: #38bdf8;
     }
 
-    /* ツールボタン群 */
     .tools-bar {
       display: flex;
       gap: 8px;
@@ -463,51 +476,165 @@
       color: #fff;
     }
 
-    /* 履歴ログ */
-    .history-box {
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding-top: 12px;
+    /* 下部: Firestore リアルタイム履歴エリア */
+    .firestore-history-card {
+      width: 100%;
+      max-width: 1100px;
+      margin-top: 24px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
-    .history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 110px;
-      overflow-y: auto;
-      font-size: 0.78rem;
-    }
-
-    .history-item {
+    .firestore-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: rgba(15, 23, 42, 0.4);
-      padding: 5px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 18px;
     }
 
-    .history-tag {
+    .firestore-title {
+      font-size: 1.05rem;
+      font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-weight: 600;
+      gap: 10px;
     }
 
-    .history-dot {
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .status-indicator.syncing {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+    }
+
+    .status-indicator.error {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
     }
 
-    .history-time {
-      color: var(--text-muted);
+    /* 履歴カードグリッド（最新10件） */
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .history-card-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .history-card-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .history-card-item.latest {
+      border-color: rgba(245, 158, 11, 0.6);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.7) 100%);
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+    }
+
+    .history-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .history-rank {
       font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .latest-tag {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #fbbf24;
+      background: rgba(245, 158, 11, 0.2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .history-item-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .history-item-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .history-item-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-timestamp {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 36px 12px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
     }
 
     footer {
-      margin-top: 30px;
+      margin-top: 36px;
       font-size: 0.75rem;
       color: #64748b;
       text-align: center;
@@ -522,7 +649,10 @@
       <div class="brand-icon">🎡</div>
       <div>
         <h1>HTML5 Canvas ルーレット</h1>
-        <p>単一HTMLで完結する項目編集・物理回転・効果音付きルーレット</p>
+        <p>
+          <span>リアルタイム物理演算・効果音・カスタマイズ</span>
+          <span class="firestore-badge">🔥 Firestore 連携</span>
+        </p>
       </div>
     </div>
     <div class="header-actions">
@@ -612,28 +742,197 @@
         <button id="equalizeBtn" class="btn-tool" title="すべての比率を1に統一">⚖️ 比率均等化</button>
         <button id="resetBtn" class="btn-tool" title="A, B, C, Dの初期状態に戻す">🔄 リセット</button>
       </div>
-
-      <!-- 当選履歴 -->
-      <div class="history-box">
-        <div class="section-label">
-          <span>当選履歴</span>
-          <button id="clearHistoryBtn" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:0.72rem;">クリア</button>
-        </div>
-        <div id="historyList" class="history-list">
-          <div style="color:#64748b;text-align:center;padding:12px 0;">まだ当選履歴はありません</div>
-        </div>
-      </div>
     </aside>
 
   </main>
 
+  <!-- 下部: Firebase Firestore リアルタイム履歴エリア (最新10件) -->
+  <section class="firestore-history-card">
+    <div class="firestore-header">
+      <div class="firestore-title">
+        <span>🔥</span>
+        <span>Firestore リアルタイム履歴ストック（最新10件）</span>
+      </div>
+      <div id="firestoreStatus" class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="firestoreStatusText">Firestore リアルタイム接続中</span>
+      </div>
+    </div>
+
+    <!-- 10件グリッドコンテナ -->
+    <div id="firestoreHistoryGrid" class="history-grid">
+      <div class="empty-state">
+        履歴データを読み込み中、またはまだ履歴がありません。<br>ルーレットを回すと自動的にクラウドへストックされます！
+      </div>
+    </div>
+  </section>
+
   <footer>
-    HTML5 Canvas & Web Audio API Roulette • 外部フレームワーク不使用・単一ファイル完結
+    HTML5 Canvas & Firebase Firestore Roulette • 外部フレームワーク不使用・単一ファイル完結
   </footer>
 
-  <script>
+  <!-- Firebase SDK v10 (Modular CDN) & アプリケーションロジック -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      limit,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
     // ----------------------------------------------------
-    // 1. データ定義とプリセット
+    // 1. Firebase 初期化設定
+    // ----------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyAdPYYcq3x-uIX0hRI68aByhb9Dv28dqxI",
+      authDomain: "html5-canvas-roulette.firebaseapp.com",
+      projectId: "html5-canvas-roulette",
+      storageBucket: "html5-canvas-roulette.firebasestorage.app",
+      messagingSenderId: "692884014267",
+      appId: "1:692884014267:web:c2e2097fd00eeecfc6d59e"
+    };
+
+    let db = null;
+    const firestoreStatus = document.getElementById('firestoreStatus');
+    const firestoreStatusText = document.getElementById('firestoreStatusText');
+    const firestoreHistoryGrid = document.getElementById('firestoreHistoryGrid');
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      console.log("Firebase initialized successfully");
+    } catch (err) {
+      console.error("Firebase initialization failed:", err);
+      updateFirestoreStatus('error', 'Firestore 初期化失敗');
+    }
+
+    function updateFirestoreStatus(state, text) {
+      firestoreStatus.className = 'status-indicator ' + state;
+      firestoreStatusText.textContent = text;
+    }
+
+    // ----------------------------------------------------
+    // 2. Firestore リアルタイムリスナー（最新10件）
+    // ----------------------------------------------------
+    function initFirestoreListener() {
+      if (!db) return;
+
+      try {
+        const historyCol = collection(db, "roulette_history");
+        const q = query(historyCol, orderBy("createdAt", "desc"), limit(10));
+
+        onSnapshot(q, (snapshot) => {
+          updateFirestoreStatus('', 'Firestore リアルタイム同期中');
+          const docs = [];
+          snapshot.forEach(doc => {
+            docs.push({ id: doc.id, ...doc.data() });
+          });
+          renderFirestoreHistory(docs);
+        }, (error) => {
+          console.warn("Firestore onSnapshot error:", error);
+          updateFirestoreStatus('syncing', 'オフライン同期モード');
+        });
+      } catch (err) {
+        console.warn("Firestore listener setup error:", err);
+        updateFirestoreStatus('error', 'リアルタイム接続エラー');
+      }
+    }
+
+    // 履歴グリッド描画
+    function renderFirestoreHistory(itemsList) {
+      if (!itemsList || itemsList.length === 0) {
+        firestoreHistoryGrid.innerHTML = `
+          <div class="empty-state">
+            まだ履歴データがありません。<br>ルーレットを回すと当選結果がリアルタイムにストックされます！
+          </div>
+        `;
+        return;
+      }
+
+      firestoreHistoryGrid.innerHTML = itemsList.map((item, index) => {
+        const isLatest = index === 0;
+
+        // 日時フォーマット処理
+        let dateDisplay = '日時記録中...';
+        if (item.createdAt && item.createdAt.toDate) {
+          const d = item.createdAt.toDate();
+          dateDisplay = formatDateTime(d);
+        } else if (item.clientTimestamp) {
+          const d = new Date(item.clientTimestamp);
+          dateDisplay = formatDateTime(d);
+        }
+
+        const color = item.color || '#38bdf8';
+        const name = escapeHtml(item.item || '不明な項目');
+
+        return `
+          <div class="history-card-item ${isLatest ? 'latest' : ''}">
+            <div class="history-card-top">
+              <span class="history-rank">#${index + 1}</span>
+              ${isLatest ? '<span class="latest-tag">最新当選</span>' : ''}
+            </div>
+            <div class="history-item-content">
+              <span class="history-item-dot" style="background-color: ${color}"></span>
+              <span class="history-item-name" title="${name}">${name}</span>
+            </div>
+            <div class="history-timestamp">${dateDisplay}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatDateTime(d) {
+      const pad = (n) => n.toString().padStart(2, '0');
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const mins = pad(d.getMinutes());
+      const secs = pad(d.getSeconds());
+      return `${year}/${month}/${day} ${hours}:${mins}:${secs}`;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    // ----------------------------------------------------
+    // 3. Firestore への自動保存
+    // ----------------------------------------------------
+    async function saveResultToFirestore(winner) {
+      if (!db) {
+        console.warn("Firestore is not available");
+        return;
+      }
+      try {
+        updateFirestoreStatus('syncing', 'クラウド保存中...');
+        const docRef = await addDoc(collection(db, "roulette_history"), {
+          item: winner.text,
+          color: winner.color,
+          createdAt: serverTimestamp(),
+          clientTimestamp: new Date().toISOString()
+        });
+        console.log("Result saved to Firestore with ID:", docRef.id);
+        updateFirestoreStatus('', 'Firestore リアルタイム同期中');
+      } catch (error) {
+        console.error("Firestore save error:", error);
+        updateFirestoreStatus('error', '保存エラー (権限またはオフライン)');
+      }
+    }
+
+    // ----------------------------------------------------
+    // 4. ルーレットデータ & プリセット定義
     // ----------------------------------------------------
     const PALETTE = [
       '#EF4444', '#F97316', '#F59E0B', '#10B981', '#06B6D4',
@@ -681,7 +980,6 @@
       ]
     };
 
-    // 初期データ復元（localStorage またはデフォルト）
     let items = [];
     try {
       const saved = localStorage.getItem('canvas_roulette_items');
@@ -691,7 +989,6 @@
       items = JSON.parse(JSON.stringify(PRESETS.alphabet));
     }
 
-    let spinHistory = [];
     let isSpinning = false;
     let soundEnabled = true;
 
@@ -708,10 +1005,9 @@
     const soundToggleBtn = document.getElementById('soundToggleBtn');
     const soundIcon = document.getElementById('soundIcon');
     const soundLabel = document.getElementById('soundLabel');
-    const historyList = document.getElementById('historyList');
 
     // ----------------------------------------------------
-    // 2. Web Audio API 音響エンジン（外部音源不要）
+    // 5. Web Audio API 音響エンジン
     // ----------------------------------------------------
     let audioCtx = null;
     function getAudioCtx() {
@@ -746,15 +1042,15 @@
       if (!soundEnabled) return;
       try {
         const actx = getAudioCtx();
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // ド, ミ, ソ, 高音ド
+        const notes = [523.25, 659.25, 783.99, 1046.50];
         notes.forEach((freq, i) => {
           const osc = actx.createOscillator();
           const gain = actx.createGain();
           osc.type = 'sine';
           osc.frequency.setValueAtTime(freq, actx.currentTime + i * 0.1);
           gain.gain.setValueAtTime(0, actx.currentTime + i * 0.1);
-          gain.gain.linearRampToValueAtTime(0.25, actx.currentTime + i * 0.1 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + i * 0.1 + 0.35);
+          gain.linearRampToValueAtTime(0.25, actx.currentTime + i * 0.1 + 0.02);
+          gain.exponentialRampToValueAtTime(0.001, actx.currentTime + i * 0.1 + 0.35);
           osc.connect(gain);
           gain.connect(actx.destination);
           osc.start(actx.currentTime + i * 0.1);
@@ -764,7 +1060,7 @@
     }
 
     // ----------------------------------------------------
-    // 3. 紙吹雪（コンフェッティ）エンジン
+    // 6. 紙吹雪演出
     // ----------------------------------------------------
     function fireConfetti() {
       const w = confettiCanvas.width;
@@ -808,7 +1104,7 @@
     }
 
     // ----------------------------------------------------
-    // 4. キャンバス描画と物理回転
+    // 7. キャンバス描画 & 物理回転
     // ----------------------------------------------------
     let currentAngle = 0;
     let angularVelocity = 0;
@@ -865,7 +1161,7 @@
       ctx.fillStyle = rimGrad;
       ctx.fill();
 
-      // リム上のスタッド（鋲）
+      // スタッド（鋲）
       const numStuds = Math.max(16, items.length * 3);
       for (let s = 0; s < numStuds; s++) {
         const sAngle = (s / numStuds) * Math.PI * 2 + (currentAngle * 0.15);
@@ -877,7 +1173,7 @@
         ctx.fill();
       }
 
-      // 各スライスの描画
+      // スライス描画
       let startAngle = currentAngle;
       items.forEach((item) => {
         const sliceAngle = ((item.weight || 1) / totalWeight) * (Math.PI * 2);
@@ -942,7 +1238,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText('SPIN', cx, cy);
 
-      // 上部ポインター（針）
+      // 上部ポインター（赤い針）
       ctx.save();
       ctx.translate(cx, cy - r - 12);
       ctx.rotate(needleWobble);
@@ -967,7 +1263,6 @@
       spinBtn.disabled = true;
       resultBanner.innerHTML = 'ルーレット回転中...';
 
-      // 初期速度と摩擦減衰
       angularVelocity = 0.42 + Math.random() * 0.22;
       const friction = 0.988;
 
@@ -995,7 +1290,8 @@
           playFanfare();
           fireConfetti();
 
-          addHistory(winner);
+          // Firestore に自動保存
+          saveResultToFirestore(winner);
           return;
         }
         requestAnimationFrame(update);
@@ -1004,7 +1300,7 @@
     }
 
     // ----------------------------------------------------
-    // 5. 設定パネルと項目管理（追加・編集・削除）
+    // 8. 設定パネルと項目管理
     // ----------------------------------------------------
     function saveItems() {
       try {
@@ -1035,7 +1331,7 @@
         itemsContainer.appendChild(row);
       });
 
-      // イベントリスナー登録
+      // イベントリスナー
       itemsContainer.querySelectorAll('input[type="color"]').forEach(el => {
         el.addEventListener('input', (e) => {
           const idx = parseInt(e.target.dataset.index, 10);
@@ -1141,39 +1437,7 @@
     });
 
     // ----------------------------------------------------
-    // 6. 当選履歴
-    // ----------------------------------------------------
-    function addHistory(winner) {
-      const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-      spinHistory.unshift({ text: winner.text, color: winner.color, time: timeStr });
-      if (spinHistory.length > 20) spinHistory.pop();
-      renderHistory();
-    }
-
-    function renderHistory() {
-      if (spinHistory.length === 0) {
-        historyList.innerHTML = '<div style="color:#64748b;text-align:center;padding:12px 0;">まだ当選履歴はありません</div>';
-        return;
-      }
-      historyList.innerHTML = spinHistory.map(h => `
-        <div class="history-item">
-          <div class="history-tag">
-            <span class="history-dot" style="background-color: ${h.color}"></span>
-            <span>${h.text}</span>
-          </div>
-          <span class="history-time">${h.time}</span>
-        </div>
-      `).join('');
-    }
-
-    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
-      spinHistory = [];
-      renderHistory();
-    });
-
-    // ----------------------------------------------------
-    // 7. サウンド切り替え & HTMLダウンロード
+    // 9. サウンド切り替え & HTMLダウンロード
     // ----------------------------------------------------
     soundToggleBtn.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
@@ -1189,7 +1453,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'roulette.html';
+      a.download = 'roulette_firestore.html';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1197,7 +1461,7 @@
     });
 
     // ----------------------------------------------------
-    // 8. キーボードショートカット & 初期起動
+    // 10. キーボードショートカット & 初期起動
     // ----------------------------------------------------
     spinBtn.addEventListener('click', spin);
     canvas.addEventListener('click', spin);
@@ -1209,9 +1473,10 @@
       }
     });
 
-    // 初期レンダリング
+    // 初期化実行
     renderItemsPanel();
     drawWheel();
+    initFirestoreListener();
   </script>
 </body>
 </html>
