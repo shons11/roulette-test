@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML5 Canvas ルーレット</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #f8fafc;
+      padding: 24px;
+    }
+    .roulette-card {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      padding: 32px 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .wheel-container {
+      position: relative;
+      width: 340px;
+      height: 340px;
+      max-width: 100%;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas#rouletteCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    canvas#confettiCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .spin-button {
+      border: none;
+      cursor: pointer;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0284c7 0%, #3b82f6 50%, #6366f1 100%);
+      padding: 16px 44px;
+      border-radius: 9999px;
+      box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .spin-button:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.7);
+    }
+    .spin-button:active:not(:disabled) {
+      transform: translateY(1px) scale(0.98);
+    }
+    .spin-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+    }
+    .result-display {
+      min-height: 48px;
+      margin-top: 18px;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .winner-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      margin-left: 6px;
+      color: #ffffff;
+      font-weight: 800;
+      animation: pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes pop {
+      0% { transform: scale(0.6); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 22px;
+    }
+    .tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.85rem;
+    }
+    .tag-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="roulette-card">
+    <h1>HTML5 Canvas ルーレット</h1>
+    <p class="subtitle">ボタンを押して回転！ランダムな項目で停止します</p>
+
+    <!-- ルーレットと紙吹雪のキャンバス -->
+    <div class="wheel-container">
+      <canvas id="rouletteCanvas" width="680" height="680"></canvas>
+      <canvas id="confettiCanvas" width="680" height="680"></canvas>
+    </div>
+
+    <!-- スタートボタン -->
+    <button id="spinBtn" class="spin-button">ルーレットを回す (SPIN)</button>
+
+    <!-- 結果表示 -->
+    <div id="resultDisplay" class="result-display">
+      項目をクリックまたはスペースキーで回転できます
+    </div>
+
+    <!-- 項目一覧バッジ -->
+    <div id="tagsList" class="tags-container"></div>
+  </div>
+
+  <script>
+    // ルーレットの項目（必要に応じて項目や色を追加・変更可能）
+    const items = [
+      { text: 'A', color: '#EF4444' }, // 赤
+      { text: 'B', color: '#3B82F6' }, // 青
+      { text: 'C', color: '#10B981' }, // 緑
+      { text: 'D', color: '#F59E0B' }  // 黄/オレンジ
+    ];
+
+    const canvas = document.getElementById('rouletteCanvas');
+    const ctx = canvas.getContext('2d');
+    const confettiCanvas = document.getElementById('confettiCanvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+    const resultDisplay = document.getElementById('resultDisplay');
+    const tagsList = document.getElementById('tagsList');
+
+    // 項目バッジの表示
+    tagsList.innerHTML = items.map(it => `
+      <div class="tag">
+        <span class="tag-dot" style="background-color: ${it.color}"></span>
+        <span>${it.text}</span>
+      </div>
+    `).join('');
+
+    let currentAngle = 0;       // 現在の回転角度（ラジアン）
+    let angularVelocity = 0;   // 角速度
+    let isSpinning = false;     // 回転中フラグ
+    let needleWobble = 0;       // 針のたわみ角度
+    let lastSliceIndex = -1;    // 直前のスライス番号（音トリガー用）
+
+    // Web Audio API によるシンセ音（外部ファイル不要）
+    let audioCtx = null;
+    function playTickSound() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(650, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.035);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+      } catch (e) {}
+    }
+
+    function playFanfareSound() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // ド, ミ, ソ, 高いド
+        notes.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+          gain.gain.setValueAtTime(0, audioCtx.currentTime + i * 0.1);
+          gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + i * 0.1 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.1 + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + i * 0.1);
+          osc.stop(audioCtx.currentTime + i * 0.1 + 0.4);
+        });
+      } catch (e) {}
+    }
+
+    // 紙吹雪アニメーション
+    function fireConfetti() {
+      const w = confettiCanvas.width, h = confettiCanvas.height;
+      const particles = [];
+      const colors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+      for (let i = 0; i < 65; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 8 + 3;
+        particles.push({
+          x: w / 2, y: h / 2,
+          vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 3,
+          size: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.2,
+          alpha: 1
+        });
+      }
+      function anim() {
+        confettiCtx.clearRect(0, 0, w, h);
+        let alive = false;
+        particles.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.rot += p.vRot; p.alpha -= 0.015;
+          if (p.alpha > 0) {
+            alive = true;
+            confettiCtx.save();
+            confettiCtx.translate(p.x, p.y);
+            confettiCtx.rotate(p.rot);
+            confettiCtx.globalAlpha = p.alpha;
+            confettiCtx.fillStyle = p.color;
+            confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+            confettiCtx.restore();
+          }
+        });
+        if (alive) requestAnimationFrame(anim);
+        else confettiCtx.clearRect(0, 0, w, h);
+      }
+      requestAnimationFrame(anim);
+    }
+
+    // 針の指す位置（真上：-PI/2）のスライス番号を取得
+    function getWinnerIndex(angle) {
+      const sliceAngle = (Math.PI * 2) / items.length;
+      const normalized = ((-Math.PI / 2 - angle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      return Math.floor(normalized / sliceAngle) % items.length;
+    }
+
+    // キャンバス描画
+    function draw() {
+      const w = canvas.width, h = canvas.height;
+      const cx = w / 2, cy = h / 2, r = cx - 36;
+      const sliceAngle = (Math.PI * 2) / items.length;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 外周のゴールドリム
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 14, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2, true);
+      const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+      grad.addColorStop(0, '#f59e0b');
+      grad.addColorStop(0.5, '#fef08a');
+      grad.addColorStop(1, '#b45309');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // 各スライスの描画
+      items.forEach((item, i) => {
+        const start = currentAngle + i * sliceAngle;
+        const end = start + sliceAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = item.color;
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 文字の描画
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 6;
+        ctx.fillText(item.text, r * 0.72, 0);
+        ctx.restore();
+      });
+
+      // 中央のハブ
+      ctx.beginPath();
+      ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+      ctx.fillStyle = '#0284c7';
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('SPIN', cx, cy);
+
+      // 上部ポインター（赤い針）
+      ctx.save();
+      ctx.translate(cx, cy - r - 14);
+      ctx.rotate(needleWobble);
+      ctx.beginPath();
+      ctx.moveTo(0, 32);
+      ctx.lineTo(-16, -16);
+      ctx.arcTo(0, -26, 16, -16, 12);
+      ctx.lineTo(16, -16);
+      ctx.closePath();
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // スピン回転処理
+    function spin() {
+      if (isSpinning) return;
+      isSpinning = true;
+      spinBtn.disabled = true;
+      resultDisplay.innerHTML = '回転中...';
+
+      // 初期速度と減衰係数
+      angularVelocity = 0.42 + Math.random() * 0.22;
+      const friction = 0.988;
+
+      function update() {
+        angularVelocity *= friction;
+        currentAngle = (currentAngle + angularVelocity) % (Math.PI * 2);
+
+        // 境界をまたいだ時にカチカチ音と針の揺れを発生
+        const curSlice = getWinnerIndex(currentAngle);
+        if (curSlice !== lastSliceIndex) {
+          lastSliceIndex = curSlice;
+          needleWobble = Math.min(0.24, angularVelocity * 0.8);
+          playTickSound();
+        }
+        needleWobble *= 0.8;
+        draw();
+
+        // 停止判定
+        if (angularVelocity < 0.0018) {
+          isSpinning = false;
+          spinBtn.disabled = false;
+          needleWobble = 0;
+          draw();
+
+          const winner = items[getWinnerIndex(currentAngle)];
+          resultDisplay.innerHTML = `🎉 当選結果: <span class="winner-badge" style="background-color: ${winner.color}">${winner.text}</span> に決定！`;
+          playFanfareSound();
+          fireConfetti();
+          return;
+        }
+        requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    // ボタン・キーイベント
+    spinBtn.addEventListener('click', spin);
+    canvas.addEventListener('click', spin);
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !isSpinning) {
+        e.preventDefault();
+        spin();
+      }
+    });
+
+    // 初期描画
+    draw();
+  </script>
+</body>
+</html>
